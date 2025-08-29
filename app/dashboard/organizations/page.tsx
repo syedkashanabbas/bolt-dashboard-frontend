@@ -33,26 +33,28 @@ export default function OrganizationsPage() {
 
   const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
 
-  // fetch orgs
-  const fetchOrganizations = useCallback(async () => {
-    if (!token) return;
-    try {
-      setLoading(true);
-      const res = await fetch("http://localhost:5000/api/organizations", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to fetch organizations");
-      const data = await res.json();
-      setOrganizations(data);
-    } catch (err) {
-      console.error("Fetch orgs error:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+const fetchOrganizations = useCallback(async () => {
+  if (!token) return;
+  try {
+    setLoading(true);
+    const res = await fetch("http://localhost:5000/api/organizations", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to fetch organizations");
+    const data = await res.json();
+    console.log("Organizations API response:", data); // debug
+    setOrganizations(data.organizations || []);
+  } catch (err) {
+    console.error("Fetch orgs error:", err);
+    setOrganizations([]); // fallback safe
+  } finally {
+    setLoading(false);
+  }
+}, [token]);
+
 
   useEffect(() => {
     fetchOrganizations();

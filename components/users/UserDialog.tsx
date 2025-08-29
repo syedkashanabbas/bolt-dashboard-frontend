@@ -122,7 +122,6 @@ export function UserDialog({ open, onOpenChange, user, onUserSaved }: UserDialog
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
-              disabled
               id="email"
               type="email"
               value={formData.email}
