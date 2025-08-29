@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,62 +17,48 @@ interface Organization {
   name: string;
   domain: string;
   plan: 'Free' | 'Pro' | 'Enterprise';
-  userCount: number;
-  status: 'active' | 'inactive' | 'suspended';
-  createdAt: string;
-  lastActivity: string;
+  users: number;
+  status: 'active' | 'inactive';
+  created_at: string;
+  last_activity: string | null;
 }
-
-const mockOrganizations: Organization[] = [
-  {
-    id: '1',
-    name: 'TechCorp Inc.',
-    domain: 'techcorp.com',
-    plan: 'Enterprise',
-    userCount: 45,
-    status: 'active',
-    createdAt: '2024-01-01T10:00:00Z',
-    lastActivity: '2024-01-15T14:30:00Z',
-  },
-  {
-    id: '2',
-    name: 'StartupXYZ',
-    domain: 'startupxyz.io',
-    plan: 'Pro',
-    userCount: 12,
-    status: 'active',
-    createdAt: '2024-01-05T09:15:00Z',
-    lastActivity: '2024-01-15T11:20:00Z',
-  },
-  {
-    id: '3',
-    name: 'Global Solutions Ltd.',
-    domain: 'globalsolutions.com',
-    plan: 'Enterprise',
-    userCount: 120,
-    status: 'active',
-    createdAt: '2023-12-15T16:00:00Z',
-    lastActivity: '2024-01-15T09:45:00Z',
-  },
-  {
-    id: '4',
-    name: 'Creative Agency',
-    domain: 'creativeagency.net',
-    plan: 'Free',
-    userCount: 5,
-    status: 'inactive',
-    createdAt: '2024-01-10T14:20:00Z',
-    lastActivity: '2024-01-12T10:15:00Z',
-  },
-];
 
 export default function OrganizationsPage() {
   const { user } = useAuth();
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedOrganization, setSelectedOrganization] = useState<Organization | null>(null);
 
-  const filteredOrganizations = mockOrganizations.filter(org => 
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+
+  // fetch orgs
+  const fetchOrganizations = useCallback(async () => {
+    if (!token) return;
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:5000/api/organizations", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to fetch organizations");
+      const data = await res.json();
+      setOrganizations(data);
+    } catch (err) {
+      console.error("Fetch orgs error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchOrganizations();
+  }, [fetchOrganizations]);
+
+  const filteredOrganizations = organizations.filter(org =>
     org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     org.domain.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -96,48 +82,43 @@ export default function OrganizationsPage() {
 
   const getPlanBadgeVariant = (plan: string) => {
     switch (plan) {
-      case 'Enterprise':
-        return 'default';
-      case 'Pro':
-        return 'secondary';
-      default:
-        return 'outline';
+      case 'Enterprise': return 'default';
+      case 'Pro': return 'secondary';
+      default: return 'outline';
     }
   };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'default';
-      case 'suspended':
-        return 'destructive';
-      default:
-        return 'secondary';
+      case 'active': return 'default';
+      default: return 'secondary';
     }
   };
 
   const stats = [
     {
       title: 'Total Organizations',
-      value: mockOrganizations.length.toString(),
+      value: organizations.length.toString(),
       description: '+2 from last month',
       icon: Building2,
     },
     {
       title: 'Active Organizations',
-      value: mockOrganizations.filter(org => org.status === 'active').length.toString(),
-      description: '92% active rate',
+      value: organizations.filter(org => org.status === 'active').length.toString(),
+      description: 'Active rate',
       icon: Building2,
     },
     {
       title: 'Total Users',
-      value: mockOrganizations.reduce((sum, org) => sum + org.userCount, 0).toString(),
+      value: organizations.reduce((sum, org) => sum + org.users, 0).toString(),
       description: 'Across all organizations',
       icon: Users,
     },
     {
       title: 'This Month',
-      value: '2',
+      value: organizations.filter(org =>
+        new Date(org.created_at).getMonth() === new Date().getMonth()
+      ).length.toString(),
       description: 'New organizations',
       icon: Calendar,
     },
@@ -163,16 +144,12 @@ export default function OrganizationsPage() {
         {stats.map((stat) => (
           <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {stat.title}
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
               <stat.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">
-                {stat.description}
-              </p>
+              <p className="text-xs text-muted-foreground">{stat.description}</p>
             </CardContent>
           </Card>
         ))}
@@ -201,76 +178,76 @@ export default function OrganizationsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Organization</TableHead>
-                <TableHead>Domain</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Users</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Last Activity</TableHead>
-                <TableHead className="w-[70px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredOrganizations.map((org) => (
-                <TableRow key={org.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white text-sm font-semibold">
-                        {org.name.charAt(0)}
-                      </div>
-                      {org.name}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{org.domain}</TableCell>
-                  <TableCell>
-                    <Badge variant={getPlanBadgeVariant(org.plan)}>
-                      {org.plan}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{org.userCount}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(org.status)}>
-                      {org.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {format(new Date(org.createdAt), 'MMM d, yyyy')}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {format(new Date(org.lastActivity), 'MMM d, HH:mm')}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setSelectedOrganization(org);
-                            setDialogOpen(true);
-                          }}
-                        >
-                          Edit Organization
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>View Users</DropdownMenuItem>
-                        <DropdownMenuItem>Change Plan</DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
-                          Suspend
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+          {loading ? (
+            <p>Loading organizations...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Organization</TableHead>
+                  <TableHead>Domain</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Users</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Last Activity</TableHead>
+                  <TableHead className="w-[70px]">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredOrganizations.map((org) => (
+                  <TableRow key={org.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white text-sm font-semibold">
+                          {org.name.charAt(0)}
+                        </div>
+                        {org.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{org.domain}</TableCell>
+                    <TableCell>
+                      <Badge variant={getPlanBadgeVariant(org.plan)}>{org.plan}</Badge>
+                    </TableCell>
+                    <TableCell>{org.users}</TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusBadgeVariant(org.status)}>{org.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {format(new Date(org.created_at), 'MMM d, yyyy')}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {org.last_activity ? format(new Date(org.last_activity), 'MMM d, HH:mm') : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedOrganization(org);
+                              setDialogOpen(true);
+                            }}
+                          >
+                            Edit Organization
+                          </DropdownMenuItem>
+                          <DropdownMenuItem>View Users</DropdownMenuItem>
+                          <DropdownMenuItem>Change Plan</DropdownMenuItem>
+                          <DropdownMenuItem className="text-red-600">
+                            Suspend
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -281,6 +258,7 @@ export default function OrganizationsPage() {
           if (!open) setSelectedOrganization(null);
         }}
         organization={selectedOrganization}
+        onOrganizationSaved={fetchOrganizations} // refresh list
       />
     </div>
   );

@@ -23,20 +23,7 @@ export default function DashboardPage() {
       icon: Building2,
       color: 'text-green-600',
     },
-    {
-      title: 'Active Sessions',
-      value: '789',
-      description: 'Current active users',
-      icon: Activity,
-      color: 'text-orange-600',
-    },
-    {
-      title: 'Security Alerts',
-      value: '2',
-      description: 'Requires attention',
-      icon: Shield,
-      color: 'text-red-600',
-    },
+   
   ];
 
   return (

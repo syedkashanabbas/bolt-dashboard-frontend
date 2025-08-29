@@ -102,10 +102,8 @@ export default function LoginPage() {
           <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
             <p className="text-sm font-medium mb-2">Demo Credentials:</p>
             <div className="text-xs space-y-1">
-              <div><strong>Super Admin:</strong> super@admin.com / password123</div>
-              <div><strong>Admin:</strong> admin@company.com / password123</div>
-              <div><strong>Manager:</strong> manager@company.com / password123</div>
-              <div><strong>User:</strong> user@company.com / password123</div>
+              <div><strong>Super Admin:</strong> super@admin.com / supersecret</div>
+              <div><strong>Admin:</strong> admin@demo.com / admin123</div>
             </div>
           </div>
         </CardContent>

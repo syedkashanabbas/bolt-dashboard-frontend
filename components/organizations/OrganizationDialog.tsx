@@ -29,25 +29,31 @@ interface Organization {
   plan: 'Free' | 'Pro' | 'Enterprise';
   status: 'active' | 'inactive' | 'suspended';
   description?: string;
-  adminEmail?: string;
+ 
 }
 
 interface OrganizationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   organization: Organization | null;
+  onOrganizationSaved?: () => void; // 👈 refresh list after save
 }
 
 const plans = ['Free', 'Pro', 'Enterprise'];
 
-export function OrganizationDialog({ open, onOpenChange, organization }: OrganizationDialogProps) {
+export function OrganizationDialog({
+  open,
+  onOpenChange,
+  organization,
+  onOrganizationSaved,
+}: OrganizationDialogProps) {
   const [formData, setFormData] = useState<Organization>({
     name: '',
     domain: '',
     plan: 'Free',
     status: 'active',
     description: '',
-    adminEmail: '',
+ 
   });
   const [loading, setLoading] = useState(false);
 
@@ -61,7 +67,7 @@ export function OrganizationDialog({ open, onOpenChange, organization }: Organiz
         plan: 'Free',
         status: 'active',
         description: '',
-        adminEmail: '',
+       
       });
     }
   }, [organization]);
@@ -70,28 +76,56 @@ export function OrganizationDialog({ open, onOpenChange, organization }: Organiz
     e.preventDefault();
     setLoading(true);
 
-    // Basic validation
-    if (!formData.name || !formData.domain || !formData.adminEmail) {
-      toast.error('Please fill in all required fields');
+    try {
+      // Basic validation
+      if (!formData.name || !formData.domain) {
+        toast.error('Please fill in all required fields');
+        setLoading(false);
+        return;
+      }
+
+      const token = localStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated');
+
+      const url = organization
+        ? `http://localhost:5000/api/organizations/${organization.id}`
+        : `http://localhost:5000/api/organizations`;
+
+      const method = organization ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+        credentials: 'include',
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to save organization');
+      }
+
+      toast.success(
+        organization
+          ? 'Organization updated successfully'
+          : 'Organization created successfully'
+      );
+
+      if (onOrganizationSaved) onOrganizationSaved(); // 👈 refresh list
+      onOpenChange(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Something went wrong');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    if (organization) {
-      toast.success('Organization updated successfully');
-    } else {
-      toast.success('Organization created successfully');
-    }
-
-    setLoading(false);
-    onOpenChange(false);
   };
 
   const handleInputChange = (field: keyof Organization, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -102,10 +136,9 @@ export function OrganizationDialog({ open, onOpenChange, organization }: Organiz
             {organization ? 'Edit Organization' : 'Create New Organization'}
           </DialogTitle>
           <DialogDescription>
-            {organization 
-              ? 'Make changes to the organization. Click save when you\'re done.'
-              : 'Add a new organization to the platform. Fill in the required information.'
-            }
+            {organization
+              ? "Make changes to the organization. Click save when you're done."
+              : 'Add a new organization to the platform. Fill in the required information.'}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -131,25 +164,17 @@ export function OrganizationDialog({ open, onOpenChange, organization }: Organiz
               />
             </div>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="adminEmail">Admin Email *</Label>
-            <Input
-              id="adminEmail"
-              type="email"
-              value={formData.adminEmail || ''}
-              onChange={(e) => handleInputChange('adminEmail', e.target.value)}
-              placeholder="admin@techcorp.com"
-              required
-            />
-          </div>
+
+        
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="plan">Plan</Label>
-              <Select 
-                value={formData.plan} 
-                onValueChange={(value: 'Free' | 'Pro' | 'Enterprise') => handleInputChange('plan', value)}
+              <Select
+                value={formData.plan}
+                onValueChange={(value: 'Free' | 'Pro' | 'Enterprise') =>
+                  handleInputChange('plan', value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a plan" />
@@ -165,9 +190,11 @@ export function OrganizationDialog({ open, onOpenChange, organization }: Organiz
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select 
-                value={formData.status} 
-                onValueChange={(value: 'active' | 'inactive' | 'suspended') => handleInputChange('status', value)}
+              <Select
+                value={formData.status}
+                onValueChange={(value: 'active' | 'inactive' | 'suspended') =>
+                  handleInputChange('status', value)
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select status" />
@@ -193,11 +220,19 @@ export function OrganizationDialog({ open, onOpenChange, organization }: Organiz
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? 'Saving...' : organization ? 'Save Changes' : 'Create Organization'}
+              {loading
+                ? 'Saving...'
+                : organization
+                ? 'Save Changes'
+                : 'Create Organization'}
             </Button>
           </DialogFooter>
         </form>
