@@ -1,15 +1,20 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: 'SuperAdmin' | 'Admin' | 'Manager' | 'User';
-  organization?: string;      // optional now
-  organizationId?: string;    // optional now
-  department?: string;
+  organization?: string;
+  organizationId?: string;
   avatar?: string;
   lastLogin?: string;
 }
@@ -20,6 +25,7 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshToken: () => Promise<void>;
+  updateUser: (newUser: Partial<User>) => void;   // 👈 yeh add kia
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,58 +42,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token && userData) {
       try {
         const parsedUser: User = JSON.parse(userData);
-        setUser(parsedUser);
+        if (parsedUser?.id) setUser(parsedUser);
       } catch {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
       }
     }
-
     setLoading(false);
   }, []);
 
-  // LOGIN
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = async (email: string, password: string) => {
     setLoading(true);
-
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
-        credentials: "include", // allows refreshToken cookie
+        credentials: 'include',
       });
 
-      if (!res.ok) {
-        throw new Error("Invalid email or password");
-      }
+      if (!res.ok) throw new Error('Invalid email or password');
 
       const data = await res.json(); // { accessToken, user }
-
-      // Normalize user object
-      const normalizedUser: User = {
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        role: data.user.role,
-        organization: data.user.organization || "System",
-        organizationId: data.user.organizationId || "",
-        department: data.user.department || "",
-        avatar: data.user.avatar || "",
-        lastLogin: new Date().toISOString(),
-      };
-
-      // Save in localStorage
-      localStorage.setItem("auth_token", data.accessToken);
-      localStorage.setItem("user_data", JSON.stringify(normalizedUser));
-
-      setUser(normalizedUser);
+      localStorage.setItem('auth_token', data.accessToken);
+      localStorage.setItem('user_data', JSON.stringify(data.user));
+      setUser(data.user);
     } finally {
       setLoading(false);
     }
   };
 
-  // LOGOUT
   const logout = () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user_data');
@@ -95,36 +79,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  // REFRESH TOKEN
-  const refreshToken = async (): Promise<void> => {
+  const refreshToken = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/auth/refresh", {
-        method: "GET",
-        credentials: "include", // sends refreshToken cookie
+      const res = await fetch('http://localhost:5000/api/auth/refresh', {
+        method: 'GET',
+        credentials: 'include',
       });
-
-      if (!res.ok) {
-        logout();
-        return;
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.accessToken) {
+        localStorage.setItem('auth_token', data.accessToken);
       }
-
-      const data = await res.json(); // { accessToken }
-      localStorage.setItem("auth_token", data.accessToken);
-    } catch {
-      logout();
-    }
+    } catch {}
   };
 
-  const value: AuthContextType = {
-    user,
-    loading,
-    login,
-    logout,
-    refreshToken,
+  // 👇 new function
+  const updateUser = (newUser: Partial<User>) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...newUser };
+    setUser(updatedUser);
+    localStorage.setItem('user_data', JSON.stringify(updatedUser));
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider
+      value={{ user, loading, login, logout, refreshToken, updateUser }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -132,8 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

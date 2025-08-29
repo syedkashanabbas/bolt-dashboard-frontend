@@ -187,7 +187,7 @@ export default function OrganizationsPage() {
                   <TableHead>Organization</TableHead>
                   <TableHead>Domain</TableHead>
                   <TableHead>Plan</TableHead>
-                  <TableHead>Users</TableHead>
+                  {/* <TableHead>Users</TableHead> */}
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Last Activity</TableHead>
@@ -209,7 +209,7 @@ export default function OrganizationsPage() {
                     <TableCell>
                       <Badge variant={getPlanBadgeVariant(org.plan)}>{org.plan}</Badge>
                     </TableCell>
-                    <TableCell>{org.users}</TableCell>
+                    {/* <TableCell>{org.users}</TableCell> */}
                     <TableCell>
                       <Badge variant={getStatusBadgeVariant(org.status)}>{org.status}</Badge>
                     </TableCell>
@@ -235,7 +235,7 @@ export default function OrganizationsPage() {
                           >
                             Edit Organization
                           </DropdownMenuItem>
-                          <DropdownMenuItem>View Users</DropdownMenuItem>
+                          {/* <DropdownMenuItem>View Users</DropdownMenuItem> */}
                           <DropdownMenuItem>Change Plan</DropdownMenuItem>
                           <DropdownMenuItem className="text-red-600">
                             Suspend

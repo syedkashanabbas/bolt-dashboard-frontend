@@ -32,11 +32,12 @@ export default function SettingsPage() {
   const [profileSettings, setProfileSettings] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    department: user?.department || '',
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
+  
+  const { updateUser } = useAuth();  
 
   const [notificationSettings, setNotificationSettings] = useState({
     emailNotifications: true,
@@ -54,23 +55,56 @@ export default function SettingsPage() {
     sessionTimeout: '30',
     passwordPolicy: 'strong',
   });
+const handleSaveProfile = async () => {
+  setSaving(true);
 
-  const handleSaveProfile = async () => {
-    setSaving(true);
-    
-    // Basic validation
-    if (profileSettings.newPassword && profileSettings.newPassword !== profileSettings.confirmPassword) {
-      toast.error('Passwords do not match');
-      setSaving(false);
-      return;
+  if (
+    profileSettings.newPassword &&
+    profileSettings.newPassword !== profileSettings.confirmPassword
+  ) {
+    toast.error("Passwords do not match");
+    setSaving(false);
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem("auth_token");
+    if (!token) throw new Error("Not authenticated");
+
+    const res = await fetch("http://localhost:5000/api/profile", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        name: profileSettings.name,
+        email: profileSettings.email,
+        currentPassword: profileSettings.currentPassword,
+        newPassword: profileSettings.newPassword,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || "Failed to update profile");
     }
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    toast.success('Profile updated successfully');
+    // 🔥 Local update instead of waiting for backend user
+    updateUser({
+      name: profileSettings.name,
+      email: profileSettings.email,
+    });
+
+    toast.success("Profile updated successfully");
+  } catch (err: any) {
+    toast.error(err.message || "Something went wrong");
+  } finally {
     setSaving(false);
-  };
+  }
+};
+
 
   const handleSaveNotifications = async () => {
     setSaving(true);
@@ -108,7 +142,7 @@ export default function SettingsPage() {
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="profile" className="space-y-4">
+          <TabsContent value="profile" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -132,9 +166,9 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-              
+
               <Separator />
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
@@ -153,15 +187,6 @@ export default function SettingsPage() {
                     onChange={(e) => setProfileSettings(prev => ({ ...prev, email: e.target.value }))}
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="department">Department</Label>
-                <Input
-                  id="department"
-                  value={profileSettings.department}
-                  onChange={(e) => setProfileSettings(prev => ({ ...prev, department: e.target.value }))}
-                />
               </div>
 
               <Separator />
